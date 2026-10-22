@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matomo Notifier</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <h1>Matomo Notifier</h1>
+        <div class="controls">
+          <span id="status" class="status">starting…</span>
+          <button id="sound-toggle" type="button" aria-pressed="true" title="Toggle sound">
+            🔊
+          </button>
+        </div>
+      </header>
+      <section id="card-area" aria-live="polite"></section>
+      <footer id="history-dots" aria-label="Notification history"></footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
