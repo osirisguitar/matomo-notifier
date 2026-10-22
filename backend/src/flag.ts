@@ -9,9 +9,14 @@ import { toRgb565 } from "./bitmap.js";
 const svgs = flags as Record<string, string>;
 const cache = new Map<string, Promise<Buffer>>();
 
+/** The flag's SVG source (for the web card), or null for unknown codes */
+export function flagSvg(countryCode: string): string | null {
+  return (/^[a-z]{2}$/.test(countryCode) && svgs[countryCode.toUpperCase()]) || null;
+}
+
 /** null when there's no flag for the code (Matomo uses "xx" for unknown) */
 export function flagRgb565(countryCode: string, width: number, height: number): Promise<Buffer> | null {
-  const svg = /^[a-z]{2}$/.test(countryCode) ? svgs[countryCode.toUpperCase()] : undefined;
+  const svg = flagSvg(countryCode);
   if (!svg) return null;
   const key = `${countryCode}@${width}x${height}`;
   let bitmap = cache.get(key);

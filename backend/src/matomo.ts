@@ -54,8 +54,14 @@ export class MatomoPoller {
     this.timer = undefined;
   }
 
-  visitsSince(after: number): VisitNotification[] {
-    return this.buffer.filter((v) => v.seq > after);
+  /**
+   * Visits that are new or have changed since `after`, in the order they were
+   * first detected (oldest first). With `limit`, only the most recently
+   * detected ones.
+   */
+  visitsSince(after: number, limit?: number): VisitNotification[] {
+    const visits = this.buffer.filter((v) => v.seq > after);
+    return limit ? visits.slice(-limit) : visits;
   }
 
   /** Whether any buffered visit came from this host (favicon allowlist). */
@@ -107,10 +113,14 @@ export class MatomoPoller {
     }
 
     let fresh = 0;
+    let updated = 0;
     for (const raw of visits) {
       const idNum = Number(raw.idVisit);
       if (!Number.isFinite(idNum)) continue;
-      if (state.seenIds.has(idNum)) continue;
+      if (state.seenIds.has(idNum)) {
+        if (this.refreshVisit(raw, siteId)) updated++;
+        continue;
+      }
       state.seenIds.add(idNum);
 
       if (!state.baselineSet) {
@@ -138,5 +148,23 @@ export class MatomoPoller {
     }
 
     if (fresh > 0) console.log(`[matomo] site ${siteId}: ${fresh} new visit(s)`);
+    if (updated > 0) console.log(`[matomo] site ${siteId}: ${updated} visit(s) updated`);
+  }
+
+  /**
+   * Matomo keeps updating a visit while the visitor browses, but it was
+   * emitted with the counts from when it was first detected. When actions or
+   * goals have changed, update it in place (keeping its position) under a new
+   * seq, so clients polling with `after` receive it again.
+   */
+  private refreshVisit(raw: RawVisit, siteId: string): boolean {
+    const id = `${siteId}-${raw.idVisit}`;
+    const index = this.buffer.findIndex((v) => v.id === id);
+    if (index < 0) return false; // baseline visit, never emitted
+    const current = this.buffer[index];
+    const mapped = mapVisit(raw, current.seq, Number(siteId), current.siteName);
+    if (mapped.actions === current.actions && mapped.goals === current.goals) return false;
+    this.buffer[index] = { ...current, actions: mapped.actions, goals: mapped.goals, seq: ++this.seq };
+    return true;
   }
 }

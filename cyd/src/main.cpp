@@ -553,7 +553,9 @@ void drawDots() {
 void render() {
   String key = hasError ? "err" : "ok";
   key += "|";
-  for (int i = 0; i < historyLen; i++) key += history[i].id + ",";
+  for (int i = 0; i < historyLen; i++) {
+    key += history[i].id + ":" + history[i].actions + ":" + history[i].goals + ",";
+  }
   key += "|" + String(viewIndex) + "|" + String(imageGen);
   if (key == lastRenderKey) return;
   lastRenderKey = key;
@@ -638,7 +640,7 @@ void chime() {
 int poll() {
   static bool first = true;
   const uint32_t t0 = millis();
-  const int code = apiGet(String("/api/visits?after=") + cursor_, 5000);
+  const int code = apiGet(String("/api/visits?after=") + cursor_ + "&limit=" + HISTORY_MAX, 5000);
   if (first) {
     first = false;
     Serial.printf("[api] first poll %s: %d in %lu ms, free heap %u\n", API_BASE, code,
@@ -676,9 +678,16 @@ int poll() {
     v.actions = item["actions"] | 0;
     v.goals = item["goals"] | 0;
 
-    bool known = false;
-    for (int i = 0; i < historyLen; i++) known = known || history[i].id == v.id;
-    if (known) continue;
+    // Already shown: an update (Matomo keeps counting actions while the
+    // visitor browses). Replace it in place, no chime, no jump.
+    int known = -1;
+    for (int i = 0; i < historyLen && known < 0; i++) {
+      if (history[i].id == v.id) known = i;
+    }
+    if (known >= 0) {
+      history[known] = v;
+      continue;
+    }
 
     // history.unshift(v); drop oldest past HISTORY_MAX; jump to newest
     for (int i = min(historyLen, HISTORY_MAX - 1); i > 0; i--) history[i] = history[i - 1];
@@ -703,10 +712,14 @@ void toggleMute() {
 // Poll, show the new card, then play the chime (once, however many visits
 // arrived), then fetch any missing favicons, which can take a moment
 void refresh() {
+  // The first successful poll loads visits detected before boot: show them,
+  // but don't chime for them
+  static bool primed = false;
   const int fresh = poll();
   drawStatus();
   render();
-  if (fresh > 0 && !muted) chime();
+  if (fresh > 0 && primed && !muted) chime();
+  if (fresh >= 0) primed = true;
   updateImages();
   render();
 }

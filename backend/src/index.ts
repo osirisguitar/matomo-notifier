@@ -4,7 +4,7 @@ import cors from "@fastify/cors";
 import { MatomoPoller } from "./matomo.js";
 import { BITMAP_SIZE_MAX, BITMAP_SIZE_MIN } from "./bitmap.js";
 import { faviconRgb565 } from "./favicon.js";
-import { flagRgb565 } from "./flag.js";
+import { flagRgb565, flagSvg } from "./flag.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 30_000);
@@ -28,10 +28,16 @@ const poller = new MatomoPoller({
 });
 poller.start();
 
-app.get<{ Querystring: { after?: string } }>("/api/visits", async (req) => {
+// New or changed visits since `after` (oldest first), optionally only the
+// `limit` most recent; clients only keep the last few
+app.get<{ Querystring: { after?: string; limit?: string } }>("/api/visits", async (req) => {
   const after = Number(req.query.after ?? 0);
+  const limit = Number(req.query.limit ?? 0);
   return {
-    visits: poller.visitsSince(Number.isNaN(after) ? 0 : after),
+    visits: poller.visitsSince(
+      Number.isNaN(after) ? 0 : after,
+      Number.isInteger(limit) && limit > 0 ? limit : undefined,
+    ),
     cursor: poller.lastSeq,
   };
 });
@@ -65,6 +71,17 @@ app.get<{ Querystring: { cc?: string; w?: string; h?: string } }>("/api/flag.rgb
     .header("content-type", "application/octet-stream")
     .header("cache-control", "public, max-age=604800")
     .send(await bitmap);
+});
+
+// The same flag as an SVG, for the web card (emoji flags don't render on
+// Windows, and this keeps web and CYD identical)
+app.get<{ Querystring: { cc?: string } }>("/api/flag.svg", async (req, reply) => {
+  const svg = flagSvg((req.query.cc ?? "").toLowerCase());
+  if (!svg) return reply.code(404).send({ error: "no flag" });
+  return reply
+    .header("content-type", "image/svg+xml")
+    .header("cache-control", "public, max-age=604800")
+    .send(svg);
 });
 
 app.get("/api/health", async () => ({ ok: true, sites: poller.siteIds.length }));

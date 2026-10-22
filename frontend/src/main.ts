@@ -1,6 +1,6 @@
 import "./style.css";
 import type { VisitNotification } from "./types.js";
-import { countryFlag, formatTime, playChime, setFavicon } from "./utils.js";
+import { formatTime, playChime, setFavicon } from "./utils.js";
 
 const HISTORY_MAX = 10;
 const POLL_MS = 2000;
@@ -15,6 +15,9 @@ let history: VisitNotification[] = []; // index 0 = newest
 let viewIndex = 0;
 let soundOn = true;
 let lastRenderKey = "";
+// The first successful poll loads visits detected before the page opened:
+// show them, but don't chime for them
+let primed = false;
 
 soundToggle.addEventListener("click", () => {
   soundOn = !soundOn;
@@ -24,19 +27,29 @@ soundToggle.addEventListener("click", () => {
 
 async function poll() {
   try {
-    const res = await fetch(`/api/visits?after=${cursor}`);
+    const res = await fetch(`/api/visits?after=${cursor}&limit=${HISTORY_MAX}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data: { visits: VisitNotification[]; cursor: number } =
       await res.json();
     cursor = data.cursor;
 
-    for (const visit of data.visits.reverse()) {
-      if (history.some((v) => v.id === visit.id)) continue;
+    // Oldest first, so the newest ends up at index 0. Visits we already have
+    // are updates (Matomo keeps counting actions while the visitor browses):
+    // replace them in place, without a chime or jumping to them.
+    let fresh = 0;
+    for (const visit of data.visits) {
+      const known = history.findIndex((v) => v.id === visit.id);
+      if (known >= 0) {
+        history[known] = visit;
+        continue;
+      }
       history.unshift(visit);
       if (history.length > HISTORY_MAX) history.pop();
       viewIndex = 0;
-      if (soundOn) playChime();
+      fresh++;
     }
+    if (fresh > 0 && primed && soundOn) playChime();
+    primed = true;
     statusEl.textContent = "connected";
     statusEl.classList.remove("error");
   } catch {
@@ -49,7 +62,7 @@ async function poll() {
 function render() {
   // Re-rendering resets the card's CSS animation and refetches the favicon,
   // which shows up as flicker. Skip renders when nothing changed.
-  const key = `${history.map((v) => v.id).join(",")}|${viewIndex}`;
+  const key = `${history.map((v) => `${v.id}:${v.actions}:${v.goals}`).join(",")}|${viewIndex}`;
   if (key === lastRenderKey) return;
   lastRenderKey = key;
 
@@ -97,39 +110,36 @@ function card(v: VisitNotification): HTMLElement {
   head.className = "card-head";
   const title = document.createElement("div");
   title.className = "title";
-  const location =
+  // Like the CYD: "<flag> <city> · <device>", the flag standing in for the
+  // country name (kept as its tooltip); "<city, country>" without a flag
+  const fullLocation =
     [v.city, v.country].filter(Boolean).join(", ") || "Unknown location";
+  const hasFlag = /^[a-z]{2}$/.test(v.countryCode) && v.countryCode !== "xx";
+  const location = hasFlag && v.city ? v.city : fullLocation;
   title.innerHTML = `
     <strong class="site">${escapeHtml(v.siteName)}</strong>
     <span class="meta">
-      <span class="flag" title="${escapeHtml(v.country ?? "")}">${countryFlag(v.countryCode)}</span>
+      ${hasFlag ? `<img class="flag" src="/api/flag.svg?cc=${v.countryCode}" alt="" title="${escapeHtml(v.country ?? "")}">` : ""}
       <span class="city">${escapeHtml(location)}</span>
       <span class="device">${v.deviceType === "mobile" ? "Mobile" : "Desktop"}</span>
     </span>`;
+  title.querySelector<HTMLImageElement>(".flag")?.addEventListener("error", (e) => {
+    (e.target as HTMLElement).remove();
+    title.querySelector(".city")!.textContent = fullLocation;
+  });
   head.append(favicon, title);
 
   const body = document.createElement("div");
   body.className = "body";
   body.innerHTML = `
-    <div class="hero">
-      <span class="hero-value">${v.actions}</span><span class="hero-unit">${v.actions === 1 ? "action" : "actions"}</span>
-    </div>
+    <div class="hero">${v.actions} ${v.actions === 1 ? "action" : "actions"}</div>
     <p class="hero-caption">New visit on ${escapeHtml(v.siteName)}.</p>
     <div class="stats">
       <div class="stat">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5"/>
-          <path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
         <time class="value" datetime="${v.visitStart}">${formatTime(v.visitStart)}</time>
         <span class="label">Visit started</span>
       </div>
       <div class="stat">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.5"/>
-          <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2.5"/>
-          <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-        </svg>
         <span class="value">${v.goals}</span>
         <span class="label">Goal ${v.goals === 1 ? "conversion" : "conversions"}</span>
       </div>

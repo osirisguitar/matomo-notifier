@@ -1,14 +1,9 @@
-export function countryFlag(cc: string): string {
-  if (!/^[a-z]{2}$/.test(cc)) return "🌍";
-  return String.fromCodePoint(
-    ...[...cc.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
-  );
-}
-
 export function formatTime(iso: string): string {
+  // 24-hour HH:MM like the CYD, whatever the browser locale
   return new Date(iso).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   });
 }
 
