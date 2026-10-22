@@ -6,4 +6,4 @@
 // The matomo-notifier backend, no trailing slash. https:// is verified against
 // the Let's Encrypt roots in letsencrypt_roots.h; plain http:// works for a
 // local dev backend (http://<host running it>:3001)
-#define API_BASE "https://matomo-notifier.home.int.bornholm.se"
+#define API_BASE "https://matomo-notifier.int.bornholm.se"
