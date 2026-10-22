@@ -40,6 +40,15 @@ The frontend dev server proxies `/api` to the backend.
 - `GET /api/health` — `{ ok, sites }`
 - `GET /api/visits?after=<seq>` — new visits since `seq`, plus the current
   `cursor` to pass in the next request.
+- `GET /api/favicon.rgb565?host=<host>&size=<4-64>` — the site's favicon as a
+  raw bitmap for the CYD display: `size*size` little-endian RGB565 pixels on a
+  white background. Only hosts seen in buffered visits are served; 404 when the
+  site has no usable favicon. Tries `/favicon.ico` (PNG and BMP entries), the
+  Google favicon service, then `/apple-touch-icon.png`, and caches the result
+  in memory.
+- `GET /api/flag.rgb565?cc=<country code>&w=<4-64>&h=<4-64>` — the country
+  flag for a visit's `countryCode`, same raw format. Rendered from the 3:2 SVGs
+  bundled in `country-flag-icons` (no network access); 404 for unknown codes.
 
 On the first poll of a site the backend records a baseline (all current visits
 are considered already seen), so only genuinely new visits are emitted

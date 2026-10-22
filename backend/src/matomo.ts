@@ -58,6 +58,11 @@ export class MatomoPoller {
     return this.buffer.filter((v) => v.seq > after);
   }
 
+  /** Whether any buffered visit came from this host (favicon allowlist). */
+  hasHost(host: string): boolean {
+    return this.buffer.some((v) => v.host === host);
+  }
+
   get lastSeq(): number {
     return this.seq;
   }

@@ -3,5 +3,7 @@
 
 #define WIFI_SSID "your-wifi-ssid"
 #define WIFI_PASSWORD "your-wifi-password"
-// The matomo-notifier backend (backend/): http://<host running it>:3001
-#define API_BASE "http://192.168.0.10:3001"
+// The matomo-notifier backend, no trailing slash. https:// is verified against
+// the Let's Encrypt roots in letsencrypt_roots.h; plain http:// works for a
+// local dev backend (http://<host running it>:3001)
+#define API_BASE "https://matomo-notifier.home.int.bornholm.se"

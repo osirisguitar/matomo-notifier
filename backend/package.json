@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
+    "country-flag-icons": "^1.6.20",
     "dotenv": "^17.2.3",
-    "fastify": "^5.6.2"
+    "fastify": "^5.6.2",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
