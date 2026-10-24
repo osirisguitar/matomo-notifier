@@ -11,6 +11,8 @@ export interface VisitNotification {
   city?: string;
   deviceType: "mobile" | "desktop";
   visitStart: string;
+  /** Title of the latest page viewed in the visit, when Matomo has one */
+  lastPageTitle?: string;
 }
 
 interface RawVisit {
@@ -21,7 +23,7 @@ interface RawVisit {
   city?: string;
   deviceType?: string;
   actions?: number;
-  actionDetails?: Array<{ type: string; url?: string }>;
+  actionDetails?: Array<{ type: string; url?: string; pageTitle?: string }>;
   firstActionTimestamp?: number;
 }
 
@@ -41,6 +43,20 @@ function siteHost(raw: RawVisit): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+// Matomo HTML-encodes some characters in titles
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&(quot|apos|lt|gt|amp);/g, (_, e) =>
+      ({ quot: '"', apos: "'", lt: "<", gt: ">", amp: "&" })[e as string]!,
+    );
+}
+
+function lastPageTitle(raw: RawVisit): string | undefined {
+  const title = raw.actionDetails?.findLast((a) => a.type === "action" && a.pageTitle)?.pageTitle;
+  return title ? decodeEntities(title).trim() || undefined : undefined;
 }
 
 export function mapVisit(
@@ -71,5 +87,6 @@ export function mapVisit(
     visitStart: raw.firstActionTimestamp
       ? new Date(raw.firstActionTimestamp * 1000).toISOString()
       : new Date().toISOString(),
+    lastPageTitle: lastPageTitle(raw),
   };
 }

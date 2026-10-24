@@ -59,6 +59,7 @@ struct Visit {
   String countryCode;
   String deviceType;
   String visitStart;
+  String lastPageTitle;
   int actions = 0;
   int goals = 0;
 };
@@ -505,7 +506,9 @@ void drawCard(const Visit& v) {
 
   tft.setTextColor(COL_MUTED);
   tft.setFreeFont(&FreeSans9pt8b);
-  tft.drawString(fitText("New visit on " + v.siteName + ".", CR - CX), CX, CAPTION_BASE);
+  // Title of the latest page visited, as much as fits
+  const String caption = v.lastPageTitle.length() ? v.lastPageTitle : "New visit on " + v.siteName + ".";
+  tft.drawString(fitText(caption, CR - CX), CX, CAPTION_BASE);
 
   // .stats: Visit started | Goals
   char timeStr[8] = "--:--";
@@ -675,6 +678,7 @@ int poll() {
     String rawDevice = item["deviceType"] | "desktop";
     v.deviceType = (rawDevice == "mobile") ? "Mobile" : "Desktop";
     v.visitStart = item["visitStart"].as<String>();
+    v.lastPageTitle = cleanText(item["lastPageTitle"] | "");
     v.actions = item["actions"] | 0;
     v.goals = item["goals"] | 0;
 

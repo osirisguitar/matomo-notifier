@@ -11,4 +11,6 @@ export interface VisitNotification {
   city?: string;
   deviceType: "mobile" | "desktop";
   visitStart: string;
+  /** Title of the latest page viewed in the visit, when Matomo has one */
+  lastPageTitle?: string;
 }

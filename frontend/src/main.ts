@@ -129,11 +129,13 @@ function card(v: VisitNotification): HTMLElement {
   });
   head.append(favicon, title);
 
+  // Title of the latest page visited (cut off with an ellipsis by CSS)
+  const caption = v.lastPageTitle || `New visit on ${v.siteName}.`;
   const body = document.createElement("div");
   body.className = "body";
   body.innerHTML = `
     <div class="hero">${v.actions} ${v.actions === 1 ? "action" : "actions"}</div>
-    <p class="hero-caption">New visit on ${escapeHtml(v.siteName)}.</p>
+    <p class="hero-caption" title="${escapeHtml(caption)}">${escapeHtml(caption)}</p>
     <div class="stats">
       <div class="stat">
         <time class="value" datetime="${v.visitStart}">${formatTime(v.visitStart)}</time>

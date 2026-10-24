@@ -153,8 +153,8 @@ export class MatomoPoller {
 
   /**
    * Matomo keeps updating a visit while the visitor browses, but it was
-   * emitted with the counts from when it was first detected. When actions or
-   * goals have changed, update it in place (keeping its position) under a new
+   * emitted as it was when first detected. When actions, goals or the latest
+   * page have changed, update it in place (keeping its position) under a new
    * seq, so clients polling with `after` receive it again.
    */
   private refreshVisit(raw: RawVisit, siteId: string): boolean {
@@ -163,8 +163,20 @@ export class MatomoPoller {
     if (index < 0) return false; // baseline visit, never emitted
     const current = this.buffer[index];
     const mapped = mapVisit(raw, current.seq, Number(siteId), current.siteName);
-    if (mapped.actions === current.actions && mapped.goals === current.goals) return false;
-    this.buffer[index] = { ...current, actions: mapped.actions, goals: mapped.goals, seq: ++this.seq };
+    if (
+      mapped.actions === current.actions &&
+      mapped.goals === current.goals &&
+      mapped.lastPageTitle === current.lastPageTitle
+    ) {
+      return false;
+    }
+    this.buffer[index] = {
+      ...current,
+      actions: mapped.actions,
+      goals: mapped.goals,
+      lastPageTitle: mapped.lastPageTitle,
+      seq: ++this.seq,
+    };
     return true;
   }
 }
